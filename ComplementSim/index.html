@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Wasm Complement Simulator</title>
+    <style>
+        body { font-family: "Segoe UI", Roboto, Helvetica, sans-serif; background-color: #f3f4f6; color: #1f2937; display: flex; justify-content: center; padding: 50px; margin: 0; }
+        .container { background: #ffffff; padding: 30px 40px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); width: 100%; max-width: 500px; }
+        h1 { font-size: 22px; margin-top: 0; border-bottom: 2px solid #e5e7eb; padding-bottom: 15px; margin-bottom: 25px; }
+        .stage { margin-bottom: 25px; }
+        .stage-title { font-weight: 600; font-size: 13px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+        .bit-group { display: flex; gap: 12px; }
+        .bit { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; border-radius: 8px; background: #f9fafb; border: 2px solid #e5e7eb; transition: 0.2s ease; }
+        
+        /* Interactive Input Styles */
+        .bit.interactive { cursor: pointer; background: #ffffff; border-color: #d1d5db; }
+        .bit.interactive:hover { border-color: #3b82f6; }
+        .bit.active { background: #3b82f6; color: white; border-color: #2563eb; }
+        
+        /* Output Styles */
+        .bit.out { background: #10b981; color: white; border-color: #059669; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Logic Simulator (C++ Engine)</h1>
+        
+        <div class="stage">
+            <div class="stage-title">Input A (Click to toggle)</div>
+            <div class="bit-group" id="inputs">
+                <div class="bit interactive" onclick="toggle(3)">0</div>
+                <div class="bit interactive" onclick="toggle(2)">0</div>
+                <div class="bit interactive" onclick="toggle(1)">0</div>
+                <div class="bit interactive" onclick="toggle(0)">0</div>
+            </div>
+        </div>
+
+        <div class="stage">
+            <div class="stage-title">Step 1: 1's Complement (Y)</div>
+            <div class="bit-group" id="y-bits">
+                <div class="bit">1</div><div class="bit">1</div><div class="bit">1</div><div class="bit">1</div>
+            </div>
+        </div>
+
+        <div class="stage">
+            <div class="stage-title">Step 2: 2's Complement (S)</div>
+            <div class="bit-group" id="s-bits">
+                <div class="bit out">0</div><div class="bit out">0</div><div class="bit out">0</div><div class="bit out">0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load the WebAssembly Glue Code -->
+    <script src="engine.js"></script>
+    <script>
+        let inputs = [0, 0, 0, 0];
+        let cppCalculate = null;
+
+        // Initialize Wasm Module
+        Module.onRuntimeInitialized = () => {
+            cppCalculate = Module.cwrap('calculate_complement', 'number', ['number','number','number','number']);
+            updateSim();
+        };
+
+        function toggle(index) {
+            inputs[3 - index] = 1 - inputs[3 - index]; 
+            updateSim();
+        }
+
+        function updateSim() {
+            if (!cppCalculate) return;
+
+            // Execute the C++ logic math
+            let resultPacked = cppCalculate(inputs[0], inputs[1], inputs[2], inputs[3]);
+
+            // Unpack the 12-bit integer returned by C++
+            let s = resultPacked & 15;        
+            let y = (resultPacked >> 4) & 15; 
+
+            // Update UI elements
+            const inElements = document.getElementById('inputs').children;
+            const yElements = document.getElementById('y-bits').children;
+            const sElements = document.getElementById('s-bits').children;
+
+            for (let i = 0; i < 4; i++) {
+                inElements[i].innerText = inputs[i];
+                inElements[i].className = inputs[i] ? "bit interactive active" : "bit interactive";
+                
+                yElements[i].innerText = (y >> (3 - i)) & 1;
+                sElements[i].innerText = (s >> (3 - i)) & 1;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1's & 2's Complement - Logic Gate Simulator</title>
+<style>
+  :root { --bg:#0f172a; --panel:#1e293b; --cy:#0ea5e9; --mg:#db2777; --lm:#65a30d; --am:#d97706; --mu:#94a3b8; --wh:#f8fafc; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--wh); font-family:Calibri, "Segoe UI", Arial, sans-serif; min-height:100vh; }
+  header { padding:14px 24px 0; }
+  h1 { margin:0; font-size:26px; }
+  h1 span { color:var(--cy); }
+  .sub { color:var(--mu); font-size:14px; margin-top:2px; }
+  .bar { display:flex; flex-wrap:wrap; gap:10px; padding:12px 24px; align-items:center; }
+  button { background:var(--panel); color:var(--wh); border:1px solid var(--mu); border-radius:6px; padding:8px 16px; font-size:14px; font-weight:700; cursor:pointer; }
+  button:hover { background:#334155; }
+  .readout { display:flex; flex-wrap:wrap; gap:12px; padding:0 24px; }
+  .card { background:#1e293b; border:1px solid #334155; border-radius:8px; padding:8px 16px; min-width:170px; }
+  .card small { color:var(--mu); display:block; font-size:12px; }
+  .card b { font-family:"Courier New", monospace; font-size:26px; }
+  .c1 { border-left:4px solid var(--cy); } .c1 b { color:var(--cy); }
+  .c2 { border-left:4px solid var(--mg); } .c2 b { color:var(--mg); }
+  .c3 { border-left:4px solid var(--lm); } .c3 b { color:var(--lm); }
+  .c4 { border-left:4px solid var(--am); } .c4 b { color:var(--am); }
+  #wrap { padding:6px 12px 20px; }
+  svg { width:100%; height:auto; max-height:72vh; display:block; }
+  .hint { color:var(--mu); font-size:13px; padding:0 24px 16px; }
+  .sw { cursor:pointer; }
+  .sw:hover rect { stroke:#fff; }
+</style>
+</head>
+<body>
+<header>
+  <h1>1's &amp; 2's Complement <span>Logic-Gate Simulator</span></h1>
+  <div class="sub">4-bit circuit built from NOT, XOR and AND gates</div>
+</header>
+
+<div class="bar">
+  <button onclick="setValue(0)">Reset (0000)</button>
+  <button onclick="setValue(5)">Example: 5</button>
+  <button onclick="setValue(Math.floor(Math.random()*16))">Random</button>
+  <button onclick="step(1)">+1</button>
+  <button onclick="toggleAuto()" id="autoBtn">&#9654; Auto count 0&ndash;15</button>
+</div>
+
+<div class="readout">
+  <div class="card c4"><small>Input A</small><b id="rA">0101</b> <span id="rAd" style="color:#94a3b8"></span></div>
+  <div class="card c2"><small>1's complement (Y)</small><b id="rY">1010</b></div>
+  <div class="card c3"><small>2's complement (S)</small><b id="rS">1011</b> <span id="rSd" style="color:#94a3b8"></span></div>
+  <div class="card c1"><small>Check</small><b id="rC" style="font-size:20px">OK</b></div>
+</div>
+
+<div id="wrap"><svg id="svg" viewBox="0 -1 34 20.4" xmlns="http://www.w3.org/2000/svg"></svg></div>
+<div class="hint">Click a switch (A3&ndash;A0) or press keys 3, 2, 1, 0 to toggle bits. Green wire = logic 1, grey wire = logic 0.</div>
+
+<script>
+const NOT = a => 1 - a;
+const AND = (a, b) => a & b;
+const XOR = (a, b) => a ^ b;
+
+function circuit(a) {
+  const y = [NOT(a[0]), NOT(a[1]), NOT(a[2]), NOT(a[3])];     
+  const s = [], c = [];
+  s[0] = NOT(y[0]);          c[1] = y[0];                      
+  s[1] = XOR(y[1], c[1]);    c[2] = AND(y[1], c[1]);
+  s[2] = XOR(y[2], c[2]);    c[3] = AND(y[2], c[2]);
+  s[3] = XOR(y[3], c[3]);
+  return { y, s, c };
+}
+
+let A = [1, 0, 1, 0];   
+let auto = null;
+const toBits = n => [n & 1, (n >> 1) & 1, (n >> 2) & 1, (n >> 3) & 1];
+const toNum = b => b[0] + 2*b[1] + 4*b[2] + 8*b[3];
+const str = b => `${b[3]}${b[2]}${b[1]}${b[0]}`;
+function setValue(n) { A = toBits(n & 15); render(); }
+function step(d) { setValue((toNum(A) + d + 16) % 16); }
+function toggle(i) { A[i] ^= 1; render(); }
+function toggleAuto() {
+  const btn = document.getElementById('autoBtn');
+  if (auto) { clearInterval(auto); auto = null; btn.innerHTML = '&#9654; Auto count 0&ndash;15'; return; }
+  btn.innerHTML = '&#10073;&#10073; Stop';
+  auto = setInterval(() => step(1), 1100);
+}
+document.addEventListener('keydown', e => { if ('0123'.includes(e.key)) toggle(+e.key); });
+
+const CY = '#0ea5e9', MG = '#db2777', LM = '#65a30d', AM = '#d97706';
+const ON = '#22c55e', OFF = '#475569';
+const col = v => v ? ON : OFF;
+const FY = y => 17.5 - y;                 
+let out = '';
+const add = s => { out += s; };
+function wire(pts, v, w = 0.09) {
+  add(`<polyline points="${pts.map(p => p[0] + ',' + FY(p[1])).join(' ')}" fill="none" stroke="${col(v)}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`);
+}
+function dot(x, y, v) { add(`<circle cx="${x}" cy="${FY(y)}" r="0.17" fill="${col(v)}"/>`); }
+function label(x, y, t, size = 0.42, fill = '#94a3b8', anchor = 'start', weight = 400, mono = false) {
+  add(`<text x="${x}" y="${FY(y)}" font-size="${size}" fill="${fill}" text-anchor="${anchor}" font-weight="${weight}" dominant-baseline="middle"${mono ? ' font-family="Courier New, monospace"' : ''}>${t}</text>`);
+}
+function NOTg(x, y) {
+  add(`<polygon points="${x},${FY(y - .8)} ${x},${FY(y + .8)} ${x + 2},${FY(y)}" fill="#1e293b" stroke="${CY}" stroke-width="0.08"/>`);
+  add(`<circle cx="${x + 2.2}" cy="${FY(y)}" r="0.2" fill="#0f172a" stroke="${CY}" stroke-width="0.08"/>`);
+  label(x + 0.35, y, 'NOT', 0.34, CY);
+}
+function ANDg(x, y) {
+  add(`<path d="M ${x},${FY(y - .9)} H ${x + 1.1} A 0.9 0.9 0 0 0 ${x + 1.1},${FY(y + .9)} H ${x} Z" fill="#1e293b" stroke="${AM}" stroke-width="0.08"/>`);
+  label(x + 0.7, y, 'AND', 0.34, AM, 'middle');
+}
+function XORg(x, y) {
+  add(`<path d="M ${x + .25},${FY(y - .9)} H ${x + 1.1} A 0.9 0.9 0 0 0 ${x + 1.1},${FY(y + .9)} H ${x + .25} Q ${x + .65},${FY(y)} ${x + .25},${FY(y - .9)} Z" fill="#1e293b" stroke="#a78bfa" stroke-width="0.08"/>`);
+  add(`<path d="M ${x - .05},${FY(y - .9)} Q ${x + .35},${FY(y)} ${x - .05},${FY(y + .9)}" fill="none" stroke="#a78bfa" stroke-width="0.08"/>`);
+  label(x + 1.0, y, 'XOR', 0.34, '#a78bfa', 'middle');
+}
+function led(x, y, v, name, dx = .8) {
+  add(`<circle cx="${x}" cy="${FY(y)}" r="0.5" fill="${v ? ON : '#1e293b'}" stroke="#94a3b8" stroke-width="0.07"/>`);
+  label(x, y, v, 0.5, v ? '#052e16' : '#94a3b8', 'middle', 700, true);
+  label(x + dx, y, name, 0.45, '#f8fafc', 'start', 700);
+}
+function sw(x, y, v, i) {
+  add(`<g class="sw" onclick="toggle(${i})"><rect x="${x - .65}" y="${FY(y) - .45}" width="1.3" height="0.9" rx="0.15" fill="${v ? ON : '#1e293b'}" stroke="#94a3b8" stroke-width="0.07"/>`);
+  add(`<text x="${x}" y="${FY(y)}" font-size="0.55" fill="${v ? '#052e16' : '#cbd5e1'}" text-anchor="middle" dominant-baseline="middle" font-weight="700" font-family="Courier New, monospace">${v}</text></g>`);
+  label(x - 0.95, y, 'A' + i, 0.5, '#f8fafc', 'end', 700);
+}
+
+function render() {
+  const { y, s, c } = circuit(A);
+  out = '';
+  const ys = { 3: 14.5, 2: 10.3, 1: 6.1, 0: 0.2 };
+  label(1.0, 16.3, 'INPUT', 0.42, '#94a3b8', 'start', 700);
+  label(4.2, 16.3, 'STEP 1: NOT gates  →  1\'s complement', 0.42, CY, 'start', 700);
+  label(14.0, 16.3, 'STEP 2: add 1 with ripple half-adders (XOR + AND)  →  2\'s complement', 0.42, MG, 'start', 700);
+
+  for (const i of [3, 2, 1, 0]) {
+    const Y = ys[i];
+    sw(2.0, Y, A[i], i);
+    wire([[2.65, Y], [4.2, Y]], A[i]);
+    NOTg(4.2, Y);
+    wire([[6.6, Y], [10.6, Y]], y[i]);
+    dot(10.6, Y, y[i]);
+    wire([[10.6, Y], [10.6, Y + 1.0]], y[i], 0.07);
+    led(10.6, Y + 1.0, y[i], 'Y' + i, 0.7);
+  }
+  let Y0 = ys[0];
+  wire([[10.6, Y0], [14.0, Y0]], y[0]);
+  NOTg(14.0, Y0);
+  wire([[16.4, Y0], [17.6, Y0]], s[0]);
+  led(18.2, Y0, s[0], 'S0', 0.8);
+  label(14.0, Y0 - 1.3, 'S0 = NOT Y0  (adding 1 always flips bit 0)', 0.36, '#94a3b8');
+  dot(12.6, Y0, y[0]);
+
+  const xs = [14.0, 19.8, 26.0];
+  let yaPrev = 0;
+  [1, 2, 3].forEach((st, k) => {
+    const xg = xs[k], Y = ys[st], ya = Y - 3.0, cv = c[st], cx = xg - 1.4;
+    if (st === 1) wire([[12.6, ys[0]], [12.6, Y - .9], [xg, Y - .9]], cv);
+    else wire([[xs[k - 1] + 2.0, yaPrev], [cx, yaPrev], [cx, Y - .9], [xg, Y - .9]], cv);
+    if (st < 3) { dot(cx, ya - .45, cv); wire([[cx, ya - .45], [xg, ya - .45]], cv); }
+    wire([[10.6, Y], [xg, Y]], y[st]);
+    if (st < 3) { dot(xg - .7, Y, y[st]); wire([[xg - .7, Y], [xg - .7, ya + .45], [xg, ya + .45]], y[st]); }
+    XORg(xg, Y - .45);
+    if (st < 3) { ANDg(xg, ya); wire([[xg + 2.0, ya], [xg + 2.0, ya]], c[st + 1]); }
+    wire([[xg + 2.2, Y - .45], [xg + 2.75, Y - .45]], s[st]);
+    led(xg + 3.25, Y - .45, s[st], 'S' + st, 0.75);
+    label(xg + 0.6, Y - 1.8, `S${st} = Y${st} ⊕ C${st}`, 0.38, '#94a3b8');
+    if (st < 3) label(xg + 0.1, ya - 1.35, `C${st + 1} = Y${st}·C${st}`, 0.38, col(c[st + 1]) === ON ? ON : '#94a3b8', 'start', 700);
+    label(cx - .15, Y - 1.55, 'C' + st, 0.4, cv ? ON : '#94a3b8', 'end', 700);
+    yaPrev = ya;
+  });
+  document.getElementById('svg').innerHTML = out;
+
+  const n = toNum(A), yy = toNum(y), ss = toNum(s);
+  document.getElementById('rA').textContent = str(A);
+  document.getElementById('rAd').textContent = n >= 8 ? '= ' + n + ' (signed ' + (n - 16) + ')' : '= ' + n;
+  document.getElementById('rY').textContent = str(y);
+  document.getElementById('rS').textContent = str(s);
+  const signed = ss >= 8 ? ss - 16 : ss;
+  document.getElementById('rSd').textContent = '(' + signed + ')';
+  const ok = (yy === ((~n) & 15)) && (ss === ((-n) & 15));
+  document.getElementById('rC').textContent = ok ? '✓ matches maths' : '✗ mismatch';
+}
+render();
+</script>
+</body>
+</html>
